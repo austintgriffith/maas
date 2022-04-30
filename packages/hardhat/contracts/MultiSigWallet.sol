@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-pragma experimental ABIEncoderV2;
+pragma abicoder v2;
+
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./MultiSigFactory.sol";
 
@@ -31,12 +32,13 @@ contract MultiSigWallet {
     _;
   }
 
-  modifier requireNonZeroSignatures(uint _signaturesRequired) {
-    require(_signaturesRequired > 0, "Must be non-zero sigs required");
+  modifier onlyValidSignaturesRequired() {
     _;
+    require(signaturesRequired > 0, "Must be non-zero signatures required");
+    require(owners.length >= signaturesRequired  , "Must be at least the same amount of signers than signatures required");
   }
 
-  constructor(uint256 _chainId, address[] memory _owners, uint _signaturesRequired, address _factory) payable requireNonZeroSignatures(_signaturesRequired) {
+  constructor(uint256 _chainId, address[] memory _owners, uint _signaturesRequired, address _factory) payable onlyValidSignaturesRequired {
     multiSigFactory = MultiSigFactory(_factory);
     signaturesRequired = _signaturesRequired;
     for (uint i = 0; i < _owners.length; i++) {
@@ -54,7 +56,7 @@ contract MultiSigWallet {
     chainId = _chainId;
   }
 
-  function addSigner(address newSigner, uint256 newSignaturesRequired) public onlySelf requireNonZeroSignatures(newSignaturesRequired) {
+  function addSigner(address newSigner, uint256 newSignaturesRequired) public onlySelf onlyValidSignaturesRequired {
     require(newSigner != address(0), "addSigner: zero address");
     require(!isOwner[newSigner], "addSigner: owner not unique");
 
@@ -66,7 +68,7 @@ contract MultiSigWallet {
     multiSigFactory.emitOwners(address(this), owners, newSignaturesRequired);
   }
 
-  function removeSigner(address oldSigner, uint256 newSignaturesRequired) public onlySelf requireNonZeroSignatures(newSignaturesRequired) {
+  function removeSigner(address oldSigner, uint256 newSignaturesRequired) public onlySelf onlyValidSignaturesRequired {
     require(isOwner[oldSigner], "removeSigner: not owner");
 
      _removeOwner(oldSigner);
@@ -87,20 +89,19 @@ contract MultiSigWallet {
       } else {
         owners.pop();
         for (uint256 j = i; j < ownersLength - 1; j++) {
-          owners.push(poppedOwners[j]);
+          owners.push(poppedOwners[j + 1]);
         }
         return;
       }
     }
   }
 
-  function updateSignaturesRequired(uint256 newSignaturesRequired) public onlySelf requireNonZeroSignatures(newSignaturesRequired) {
+  function updateSignaturesRequired(uint256 newSignaturesRequired) public onlySelf onlyValidSignaturesRequired {
     signaturesRequired = newSignaturesRequired;
   }
 
   function executeTransaction( address payable to, uint256 value, bytes memory data, bytes[] memory signatures)
       public
-      onlyOwner
       returns (bytes memory)
   {
     bytes32 _hash =  getTransactionHash(nonce, to, value, data);
