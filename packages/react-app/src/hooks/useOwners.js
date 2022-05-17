@@ -1,5 +1,5 @@
 export const useOwners = ({ ownerEvents }) => {
-  const events = ownerEvents.sort((a, b) => a.blockNumber - b.blockNumber);
+  const events = ownerEvents?.sort((a, b) => a.blockNumber - b.blockNumber) || [];
   const { owners, previousOwners } = events.reduce(
     ({ owners, previousOwners }, e) => {
       if (e.added) {
@@ -14,5 +14,5 @@ export const useOwners = ({ ownerEvents }) => {
     { owners: {}, previousOwners: {} },
   );
 
-  return { owners: Object.keys(owners), previousOwners: Object.keys(previousOwners) };
+  return { owners: Object.keys(owners || {}), previousOwners: Object.keys(previousOwners || {}) };
 };

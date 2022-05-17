@@ -1,13 +1,16 @@
-import { useEffect } from "react";
-import { useP2P, useReceivePeerState, usePeerState, useCurrentOwners } from "../hooks";
+import { useCallback, useEffect } from "react";
+import { useP2P, useReceivePeerState, usePeerState, useOwners } from "../hooks";
 import { PeersContext } from "./PeersContext";
 import { TransactionContext } from "./TransactionContext";
 
+/**
+ * Uses peer to peer connections to share transactions.
+ * uses peerjs public servers for ICE/STUN/TURN servers for finding each other.
+ */
 export const P2PTransactionsProvider = ({ address, contractAddress, ownerEvents, children }) => {
   const storageKey = `txns-${contractAddress}`;
-  const peerIds = useCurrentOwners({ ownerEvents })
-    ?.filter(o => o !== address)
-    .map(ownerAddress => `${contractAddress}-${ownerAddress}`);
+  const { owners } = useOwners({ ownerEvents });
+  const peerIds = owners?.filter(o => o !== address).map(ownerAddress => `${contractAddress}-${ownerAddress}`);
   const client = useP2P({ contractAddress, address });
   const [peerState, isConnected] = useReceivePeerState({ peerBrokerIds: peerIds, client });
   const [state, setState, connections] = usePeerState({
@@ -15,10 +18,21 @@ export const P2PTransactionsProvider = ({ address, contractAddress, ownerEvents,
     client,
   });
 
-  const saveTransactions = txs => {
-    setState(txs);
-    localStorage.setItem(storageKey, JSON.stringify(txs));
-  };
+  const saveTransactions = useCallback(
+    txs => {
+      setState(txs);
+      localStorage.setItem(storageKey, JSON.stringify(txs));
+    },
+    [setState, storageKey],
+  );
+
+  const saveTransaction = useCallback(
+    tx => {
+      const newState = { ...state, [tx.hash]: tx };
+      saveTransactions(newState);
+    },
+    [saveTransactions, JSON.stringify(state)],
+  );
 
   useEffect(() => {
     if (!peerState) {
@@ -55,7 +69,7 @@ export const P2PTransactionsProvider = ({ address, contractAddress, ownerEvents,
   );
   const value = {
     transactions: state,
-    saveTransactions,
+    saveTransaction,
   };
 
   return (
