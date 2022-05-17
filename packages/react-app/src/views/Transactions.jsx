@@ -25,41 +25,29 @@ export default function Transactions({
   readContracts,
   writeContracts,
   blockExplorer,
+  wakuTransactions,
+  wakuLightPush,
+  contractAddress,
 }) {
-  const [transactions, setTransactions] = useState();
-  usePoller(() => {
-    const getTransactions = async () => {
-      const res = await axios.get(
-        poolServerUrl + readContracts[contractName].address + "_" + localProvider._network.chainId,
-      );
-
-      console.log("backend stuff res", res.data);
-
-      const newTransactions = [];
-      for (const i in res.data) {
-        console.log("backend stuff res.data[i]", res.data[i]);
-        const thisNonce = ethers.BigNumber.from(res.data[i].nonce);
-        if (thisNonce && nonce && thisNonce.gte(nonce)) {
-          const validSignatures = [];
-          for (const sig in res.data[i].signatures) {
-            const signer = await readContracts[contractName].recover(res.data[i].hash, res.data[i].signatures[sig]);
-            const isOwner = await readContracts[contractName].isOwner(signer);
-            if (signer && isOwner) {
-              validSignatures.push({ signer, signature: res.data[i].signatures[sig] });
-            }
-          }
-
-          const update = { ...res.data[i], validSignatures };
-          newTransactions.push(update);
-        }
+  const filterAndProcessTx = receivedTransactions => {
+    // filter for the current contract
+    let txList = receivedTransactions.filter(tx => tx.address === contractAddress);
+    // filter out the duplicate Tx keep the latest.
+    let memTransactions = [];
+    txList.map(transaction => {
+      const duplicateIndex = memTransactions.findIndex(tx => tx.hash === transaction.hash);
+      const hasDuplicate = duplicateIndex !== -1;
+      if (hasDuplicate) {
+        const duplicateTx = memTransactions[duplicateIndex];
+        if (transaction.timestamp > duplicateTx.timestamp) memTransactions[duplicateIndex] = transaction;
+      } else {
+        memTransactions.push(transaction);
       }
-
-      console.log("backend stuff newTransactions", newTransactions);
-
-      setTransactions(newTransactions);
-    };
-    if (readContracts[contractName]) getTransactions();
-  }, 3777);
+    });
+    // filter for not executed tx
+    memTransactions = memTransactions.filter(tx => tx.done === 0);
+    return memTransactions;
+  };
 
   const getSortedSigList = async (allSigs, newHash) => {
     const sigList = [];
@@ -89,9 +77,9 @@ export default function Transactions({
   if (!signaturesRequired) {
     return <Spin />;
   }
-
+  const transactions = filterAndProcessTx(wakuTransactions);
   return (
-    <div style={{ maxWidth: 850, margin: "auto", marginTop: 32, marginBottom: 32 }}>
+    <div style={{ maxWidth: 850, margin: "auto", marginTop: 32, marginBottom: 200 }}>
       <h1>
         <b style={{ padding: 16 }}>#{nonce ? nonce.toNumber() : <Spin />}</b>
       </h1>
@@ -102,9 +90,6 @@ export default function Transactions({
         renderItem={item => {
           const hasSigned = item.signers.indexOf(address) >= 0;
           const hasEnoughSignatures = item.signatures.length <= signaturesRequired.toNumber();
-
-          console.log("transaction details:", item);
-
           return (
             <TransactionListItem
               item={item}
@@ -114,69 +99,78 @@ export default function Transactions({
               readContracts={readContracts}
               contractName={contractName}
             >
-              <div style={{padding:16}}>
-              <span style={{padding:4}}>
-                {item.signatures.length}/{signaturesRequired.toNumber()} {hasSigned ? "✅" : ""}
-              </span>
-              <span style={{padding:4}}>
-                <Button
-                  type="secondary"
-                  onClick={async () => {
-                    const newHash = await readContracts[contractName].getTransactionHash(
-                      item.nonce,
-                      item.to,
-                      parseEther("" + parseFloat(item.amount).toFixed(12)),
-                      item.data,
-                    );
-
-                    const signature = await userSigner?.signMessage(ethers.utils.arrayify(newHash));
-                    const recover = await readContracts[contractName].recover(newHash, signature);
-                    const isOwner = await readContracts[contractName].isOwner(recover);
-                    if (isOwner) {
-                      const [finalSigList, finalSigners] = await getSortedSigList(
-                        [...item.signatures, signature],
-                        newHash,
-                      );
-                      const res = await axios.post(poolServerUrl, {
-                        ...item,
-                        signatures: finalSigList,
-                        signers: finalSigners,
-                      });
-                    }
-                  }}
-                >
-                  Sign
-                </Button>
-                <Button
-                  key={item.hash}
-                  type={hasEnoughSignatures ? "primary" : "secondary"}
-                  onClick={async () => {
-                    const newHash = await readContracts[contractName].getTransactionHash(
-                      item.nonce,
-                      item.to,
-                      parseEther("" + parseFloat(item.amount).toFixed(12)),
-                      item.data,
-                    );
-
-                    const [finalSigList, finalSigners] = await getSortedSigList(item.signatures, newHash);
-
-                    console.log("writeContracts: ", item.to, parseEther("" + parseFloat(item.amount).toFixed(12)), item.data, finalSigList);
-
-                    tx(
-                      writeContracts[contractName].executeTransaction(
+              <div style={{ padding: 16 }}>
+                <span style={{ padding: 4 }}>
+                  {item.signatures.length}/{signaturesRequired.toNumber()} {hasSigned ? "✅" : ""}
+                </span>
+                <span style={{ padding: 4 }}>
+                  <Button
+                    type="secondary"
+                    disabled={hasSigned}
+                    onClick={async () => {
+                      const newHash = await readContracts[contractName].getTransactionHash(
+                        item.nonce,
                         item.to,
                         parseEther("" + parseFloat(item.amount).toFixed(12)),
                         item.data,
-                        finalSigList,
-                      ),
-                    );
-                  }}
-                >
-                  Exec
-                </Button>
-              </span>
-            </div>
-          </TransactionListItem>
+                      );
+
+                      const signature = await userSigner?.signMessage(ethers.utils.arrayify(newHash));
+                      const recover = await readContracts[contractName].recover(newHash, signature);
+                      const isOwner = await readContracts[contractName].isOwner(recover);
+                      if (isOwner) {
+                        const [finalSigList, finalSigners] = await getSortedSigList(
+                          [...item.signatures, signature],
+                          newHash,
+                        );
+                        wakuLightPush({
+                          ...item,
+                          signatures: finalSigList,
+                          signers: finalSigners,
+                          timestamp: new Date(),
+                        });
+                      }
+                    }}
+                  >
+                    Sign
+                  </Button>
+                  <Button
+                    key={item.hash}
+                    type={hasEnoughSignatures ? "primary" : "secondary"}
+                    onClick={async () => {
+                      const newHash = await readContracts[contractName].getTransactionHash(
+                        item.nonce,
+                        item.to,
+                        parseEther("" + parseFloat(item.amount).toFixed(12)),
+                        item.data,
+                      );
+                      const [finalSigList, finalSigners] = await getSortedSigList(item.signatures, newHash);
+                      tx(
+                        writeContracts[contractName].executeTransaction(
+                          item.to,
+                          parseEther("" + parseFloat(item.amount).toFixed(12)),
+                          item.data,
+                          finalSigList,
+                        ),
+                        txResp => {
+                          if (txResp.error) {
+                            console.log("transaction error", txResp);
+                            return;
+                          }
+                          wakuLightPush({
+                            ...item,
+                            done: 1,
+                            timestamp: new Date(),
+                          });
+                        },
+                      );
+                    }}
+                  >
+                    Exec
+                  </Button>
+                </span>
+              </div>
+            </TransactionListItem>
           );
         }}
       />

@@ -1,4 +1,4 @@
-import { Button, Col, Menu, Row, Alert, Select } from "antd";
+import { Button, Col, Menu, Row, Alert, Select, notification } from "antd";
 import "antd/dist/antd.css";
 import {
   useBalance,
@@ -12,6 +12,8 @@ import { useExchangeEthPrice } from "eth-hooks/dapps/dex";
 import { useEventListener } from "eth-hooks/events/";
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, Route, Switch, useLocation } from "react-router-dom";
+import { Waku, WakuMessage, discovery, getPredefinedBootstrapNodes, utils } from "js-waku";
+import protons from "protons";
 import "./App.css";
 import {
   Account,
@@ -49,6 +51,23 @@ const USE_BURNER_WALLET = true; // toggle burner wallet feature
 const USE_NETWORK_SELECTOR = false;
 
 const web3Modal = Web3ModalSetup();
+const VERSION = "1.1";
+
+const proto = protons(`
+  message WakuTxMessage {
+    required uint64 chainId = 1;
+    required string address = 2;
+    required uint64 nonce = 3;
+    required string to = 4;
+    required string amount = 5;
+    required string data = 6;
+    required string hash = 7;
+    repeated string signatures = 8;
+    repeated string signers = 9;
+    required uint64 timestamp = 10;
+    required uint32 done = 11;
+  }
+`);
 
 const multiSigWalletABI = [
   {
@@ -193,6 +212,7 @@ const multiSigWalletABI = [
   { stateMutability: "payable", type: "receive" },
 ];
 
+const CONTENT_TOPIC = "/waku-multisig/1/1.7/tx-history/proto";
 // 🛰 providers
 const providers = [
   "https://eth-mainnet.gateway.pokt.network/v1/lb/611156b4a585a20035148406",
@@ -208,6 +228,9 @@ function App(props) {
   const [injectedProvider, setInjectedProvider] = useState();
   const [address, setAddress] = useState();
   const [selectedNetwork, setSelectedNetwork] = useState(networkOptions[0]);
+  const [waku, setWaku] = useState(undefined);
+  const [transactions, setTransactions] = useState([]);
+  const [wakuStatus, setWakuStatus] = useState("None");
   const location = useLocation();
 
   const cachedNetwork = window.localStorage.getItem("network");
@@ -219,7 +242,7 @@ function App(props) {
     BACKEND_URL = "https://backend.multisig.lol:49899/";
   }
 
-  if(!targetNetwork) targetNetwork = NETWORKS["localhost"];
+  if (!targetNetwork) targetNetwork = NETWORKS["localhost"];
 
   // 🔭 block explorer URL
   const blockExplorer = targetNetwork.blockExplorer;
@@ -299,7 +322,7 @@ function App(props) {
 
   // MultiSigFactory Events:
   const ownersMultiSigEvents = useEventListener(readContracts, "MultiSigFactory", "Owners", localProvider, 1);
-  if (DEBUG) console.log("📟 ownersMultiSigEvents:", ownersMultiSigEvents);
+  // if (DEBUG) console.log("📟 ownersMultiSigEvents:", ownersMultiSigEvents);
 
   const [multiSigs, setMultiSigs] = useState([]);
   const [currentMultiSigAddress, setCurrentMultiSigAddress] = useState();
@@ -368,6 +391,89 @@ function App(props) {
     }
   }, [currentMultiSigAddress, readContracts, writeContracts]);
 
+  const decodeWakuMessage = useCallback(wakuMessage => {
+    if (!wakuMessage.payload) return;
+    const decodedTx = proto.WakuTxMessage.decode(wakuMessage.payload);
+    return decodedTx;
+  }, []);
+
+  const wakuLightPush = async message => {
+    const encodedMessage = proto.WakuTxMessage.encode(message);
+    const wakuMessage = await WakuMessage.fromBytes(encodedMessage, CONTENT_TOPIC, {
+      symKey: utils.hexToBytes(utils.keccak256Buf(Buffer.from(CONTENT_TOPIC, "utf-8"))),
+    });
+    const resp = await waku.lightPush.push(wakuMessage);
+    if (!resp?.isSuccess) {
+      notification.open({
+        message: "🛑 Error Proposing Transaction To Waku Network",
+        description: <>{message.toString()} (check console)</>,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!currentMultiSigAddress) return;
+    // If Waku status is Connected, return
+    if (wakuStatus === "Connected") return;
+    // If Waku status is None, it means we need to start Waku;
+    if (!waku || wakuStatus === "None") {
+      setWakuStatus("Starting");
+
+      // Create Waku
+
+      Waku.create({
+        bootstrap: {
+          peers: getPredefinedBootstrapNodes(discovery.predefined.Fleet.Test),
+        },
+        decryptionKeys: [utils.hexToBytes(utils.keccak256Buf(Buffer.from(CONTENT_TOPIC, "utf-8")))],
+      }).then(waku => {
+        // Once done, put it in the state
+        setWaku(waku);
+        // And update the status
+        setWakuStatus("Connecting");
+      });
+    }
+
+    // If Waku status is Connecting, it means we need to wait for the Waku peers to be ready;
+    if (wakuStatus === "Connecting") {
+      waku.waitForRemotePeer().then(() => {
+        setWakuStatus("Connected");
+      });
+    }
+  }, [waku, wakuStatus, currentMultiSigAddress]);
+
+  const addNewTransaction = useCallback(
+    wakuMessage => {
+      const newTx = decodeWakuMessage(wakuMessage);
+      if (newTx) setTransactions(txs => [...txs, newTx]);
+    },
+    [decodeWakuMessage],
+  );
+
+  React.useEffect(() => {
+    if (!waku) return;
+
+    // Pass the content topic to only process messages related to your dApp
+
+    waku.relay.addObserver(addNewTransaction, [CONTENT_TOPIC]);
+
+    if (wakuStatus === "Connected") {
+      const processWakuStoreMessages = retrievedMessages => {
+        const retrievedTxs = retrievedMessages.map(decodeWakuMessage).filter(Boolean);
+        console.log("==> retrievedMessages", retrievedTxs);
+        setTransactions(txs => [...txs, ...retrievedTxs]);
+      };
+      waku.store.queryHistory([CONTENT_TOPIC], { callback: processWakuStoreMessages }).catch(e => {
+        console.log("==> Failed to retrieve messages", e);
+      });
+    }
+
+    // `cleanUp` is called when the component is unmounted, see ReactJS doc.
+    return function cleanUp() {
+      waku.relay.deleteObserver(addNewTransaction, [CONTENT_TOPIC]);
+    };
+  }, [waku, wakuStatus]);
+
   // MultiSigWallet Events:
   const allExecuteTransactionEvents = useEventListener(
     currentMultiSigAddress ? readContracts : null,
@@ -376,7 +482,7 @@ function App(props) {
     localProvider,
     1,
   );
-  if (DEBUG) console.log("📟 executeTransactionEvents:", allExecuteTransactionEvents);
+  // if (DEBUG) console.log("📟 executeTransactionEvents:", allExecuteTransactionEvents);
 
   const allOwnerEvents = useEventListener(
     currentMultiSigAddress ? readContracts : null,
@@ -385,7 +491,7 @@ function App(props) {
     localProvider,
     1,
   );
-  if (DEBUG) console.log("📟 ownerEvents:", allOwnerEvents);
+  // if (DEBUG) console.log("📟 ownerEvents:", allOwnerEvents);
 
   const [ownerEvents, setOwnerEvents] = useState();
   const [executeTransactionEvents, setExecuteTransactionEvents] = useState();
@@ -395,8 +501,10 @@ function App(props) {
   }, [allOwnerEvents, currentMultiSigAddress]);
 
   useEffect(() => {
-    const filteredEvents = allExecuteTransactionEvents.filter(contractEvent => contractEvent.address === currentMultiSigAddress);
-    const nonceNum = typeof(nonce) === "number" ? nonce : nonce?.toNumber();
+    const filteredEvents = allExecuteTransactionEvents.filter(
+      contractEvent => contractEvent.address === currentMultiSigAddress,
+    );
+    const nonceNum = typeof nonce === "number" ? nonce : nonce?.toNumber();
     if (nonceNum === filteredEvents.length) {
       setExecuteTransactionEvents(filteredEvents.reverse());
     }
@@ -458,8 +566,6 @@ function App(props) {
     setCurrentMultiSigAddress(value);
   };
 
-  console.log("currentMultiSigAddress:", currentMultiSigAddress);
-
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
 
   const selectNetworkOptions = [];
@@ -487,7 +593,7 @@ function App(props) {
       {selectNetworkOptions}
     </Select>
   );
-
+  console.log("waku status", wakuStatus);
   return (
     <div className="App">
       <Header>
@@ -543,7 +649,11 @@ function App(props) {
               isCreateModalVisible={isCreateModalVisible}
               setIsCreateModalVisible={setIsCreateModalVisible}
             />
-            <Select value={[currentMultiSigAddress]} style={{ width: 120, marginRight: 5, }} onChange={handleMultiSigChange}>
+            <Select
+              value={[currentMultiSigAddress]}
+              style={{ width: 120, marginRight: 5 }}
+              onChange={handleMultiSigChange}
+            >
               {multiSigs.map((address, index) => (
                 <Option key={index} value={address}>
                   {address}
@@ -551,7 +661,9 @@ function App(props) {
               ))}
             </Select>
             {networkSelect}
+            <Button style={{ marginLeft: 10 }}>waku:{wakuStatus}</Button>
           </div>
+
           <ImportMultiSigModal
             mainnetProvider={mainnetProvider}
             targetNetwork={targetNetwork}
@@ -630,6 +742,7 @@ function App(props) {
             nonce={nonce}
             blockExplorer={blockExplorer}
             signaturesRequired={signaturesRequired}
+            wakuLightPush={wakuLightPush}
           />
         </Route>
         <Route path="/pool">
@@ -641,13 +754,16 @@ function App(props) {
             mainnetProvider={mainnetProvider}
             localProvider={localProvider}
             yourLocalBalance={yourLocalBalance}
+            contractAddress={currentMultiSigAddress}
             price={price}
             tx={tx}
             writeContracts={writeContracts}
             readContracts={readContracts}
             blockExplorer={blockExplorer}
             nonce={nonce}
+            wakuLightPush={wakuLightPush}
             signaturesRequired={signaturesRequired}
+            wakuTransactions={transactions}
           />
         </Route>
         <Route exact path="/debug">
