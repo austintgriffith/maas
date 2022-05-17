@@ -12,6 +12,7 @@ import { useExchangeEthPrice } from "eth-hooks/dapps/dex";
 import { useEventListener } from "eth-hooks/events/";
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, Route, Switch, useLocation } from "react-router-dom";
+import { TransactionsProvider } from "./contexts";
 import "./App.css";
 import {
   Account,
@@ -586,107 +587,113 @@ function App(props) {
           <Link to="/pool">Pool</Link>
         </Menu.Item>
       </Menu>
-
-      <Switch>
-        <Route exact path="/">
-          {!userHasMultiSigs ? (
-            <Row style={{ marginTop: 40 }}>
-              <Col span={12} offset={6}>
-                <Alert
-                  message={
-                    <>
-                      ✨{" "}
-                      <Button onClick={() => setIsCreateModalVisible(true)} type="link" style={{ padding: 0 }}>
-                        Create
-                      </Button>{" "}
-                      or select your Multi-Sig ✨
-                    </>
-                  }
-                  type="info"
-                />
-              </Col>
-            </Row>
-          ) : (
-            <Home
-              contractAddress={currentMultiSigAddress}
+      <TransactionsProvider
+        providerType="server"
+        providerOptions={{
+          url: BACKEND_URL + readContracts[contractName].address + "_" + localProvider._network.chainId,
+          address,
+          contractAddress,
+          ownerEvents,
+        }}
+      >
+        <Switch>
+          <Route exact path="/">
+            {!userHasMultiSigs ? (
+              <Row style={{ marginTop: 40 }}>
+                <Col span={12} offset={6}>
+                  <Alert
+                    message={
+                      <>
+                        ✨{" "}
+                        <Button onClick={() => setIsCreateModalVisible(true)} type="link" style={{ padding: 0 }}>
+                          Create
+                        </Button>{" "}
+                        or select your Multi-Sig ✨
+                      </>
+                    }
+                    type="info"
+                  />
+                </Col>
+              </Row>
+            ) : (
+              <Home
+                contractAddress={currentMultiSigAddress}
+                localProvider={localProvider}
+                price={price}
+                mainnetProvider={mainnetProvider}
+                blockExplorer={blockExplorer}
+                executeTransactionEvents={executeTransactionEvents}
+                contractName={contractName}
+                readContracts={readContracts}
+                ownerEvents={ownerEvents}
+                signaturesRequired={signaturesRequired}
+              />
+            )}
+          </Route>
+          <Route path="/create">
+            <CreateTransaction
+              contractName={contractName}
+              contractAddress={contractAddress}
+              mainnetProvider={mainnetProvider}
               localProvider={localProvider}
               price={price}
-              mainnetProvider={mainnetProvider}
-              blockExplorer={blockExplorer}
-              executeTransactionEvents={executeTransactionEvents}
-              contractName={contractName}
+              tx={tx}
               readContracts={readContracts}
-              ownerEvents={ownerEvents}
+              userSigner={userSigner}
+              DEBUG={DEBUG}
+              nonce={nonce}
+              blockExplorer={blockExplorer}
               signaturesRequired={signaturesRequired}
             />
-          )}
-        </Route>
-        <Route path="/create">
-          <CreateTransaction
-            poolServerUrl={BACKEND_URL}
-            contractName={contractName}
-            contractAddress={contractAddress}
-            mainnetProvider={mainnetProvider}
-            localProvider={localProvider}
-            price={price}
-            tx={tx}
-            readContracts={readContracts}
-            userSigner={userSigner}
-            DEBUG={DEBUG}
-            nonce={nonce}
-            blockExplorer={blockExplorer}
-            signaturesRequired={signaturesRequired}
-          />
-        </Route>
-        <Route path="/pool">
-          <Transactions
-            poolServerUrl={BACKEND_URL}
-            contractName={contractName}
-            address={address}
-            userSigner={userSigner}
-            mainnetProvider={mainnetProvider}
-            localProvider={localProvider}
-            yourLocalBalance={yourLocalBalance}
-            price={price}
-            tx={tx}
-            writeContracts={writeContracts}
-            readContracts={readContracts}
-            blockExplorer={blockExplorer}
-            nonce={nonce}
-            signaturesRequired={signaturesRequired}
-          />
-        </Route>
-        <Route exact path="/debug">
-          <Contract
-            name={"MultiSigFactory"}
-            price={price}
-            signer={userSigner}
-            provider={localProvider}
-            address={address}
-            blockExplorer={blockExplorer}
-            contractConfig={contractConfig}
-          />
-        </Route>
-        <Route path="/hints">
-          <Hints
-            address={address}
-            yourLocalBalance={yourLocalBalance}
-            mainnetProvider={mainnetProvider}
-            price={price}
-          />
-        </Route>
-        <Route path="/mainnetdai">
-          <Contract
-            name="DAI"
-            customContract={mainnetContracts && mainnetContracts.contracts && mainnetContracts.contracts.DAI}
-            signer={userSigner}
-            provider={mainnetProvider}
-            address={address}
-            blockExplorer="https://etherscan.io/"
-            contractConfig={contractConfig}
-            chainId={1}
-          />
-          {/*
+          </Route>
+          <Route path="/pool">
+            <Transactions
+              contractName={contractName}
+              address={address}
+              userSigner={userSigner}
+              mainnetProvider={mainnetProvider}
+              localProvider={localProvider}
+              yourLocalBalance={yourLocalBalance}
+              price={price}
+              tx={tx}
+              writeContracts={writeContracts}
+              readContracts={readContracts}
+              blockExplorer={blockExplorer}
+              nonce={nonce}
+              signaturesRequired={signaturesRequired}
+            />
+          </Route>
+          <Route exact path="/debug">
+            <Contract
+              name={"MultiSigFactory"}
+              price={price}
+              signer={userSigner}
+              provider={localProvider}
+              address={address}
+              blockExplorer={blockExplorer}
+              contractConfig={contractConfig}
+            />
+          </Route>
+          <Route path="/hints">
+            <Hints
+              address={address}
+              yourLocalBalance={yourLocalBalance}
+              mainnetProvider={mainnetProvider}
+              price={price}
+            />
+          </Route>
+          <Route path="/mainnetdai">
+            <Contract
+              name="DAI"
+              customContract={mainnetContracts && mainnetContracts.contracts && mainnetContracts.contracts.DAI}
+              signer={userSigner}
+              provider={mainnetProvider}
+              address={address}
+              blockExplorer="https://etherscan.io/"
+              contractConfig={contractConfig}
+              chainId={1}
+            />
+            {/*
             <Contract
               name="UNI"
               customContract={mainnetContracts && mainnetContracts.contracts && mainnetContracts.contracts.UNI}
@@ -696,16 +703,17 @@ function App(props) {
               blockExplorer="https://etherscan.io/"
             />
             */}
-        </Route>
-        <Route path="/subgraph">
-          <Subgraph
-            subgraphUri={props.subgraphUri}
-            tx={tx}
-            writeContracts={writeContracts}
-            mainnetProvider={mainnetProvider}
-          />
-        </Route>
-      </Switch>
+          </Route>
+          <Route path="/subgraph">
+            <Subgraph
+              subgraphUri={props.subgraphUri}
+              tx={tx}
+              writeContracts={writeContracts}
+              mainnetProvider={mainnetProvider}
+            />
+          </Route>
+        </Switch>
+      </TransactionsProvider>
 
       <ThemeSwitch />
 

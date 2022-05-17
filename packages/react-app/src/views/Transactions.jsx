@@ -3,7 +3,7 @@ import { Button, List, Divider, Input, Card, DatePicker, Slider, Switch, Progres
 import { parseEther, formatEther } from "@ethersproject/units";
 import { ethers } from "ethers";
 import { TransactionListItem } from "../components";
-import { useTransactions } from "../contexts/TransactionProvider";
+import { useTransactions } from "../contexts/ServerTransactionsProvider";
 
 export default function Transactions({
   poolServerUrl,

@@ -1,11 +1,10 @@
 import axios from "axios";
-import { createContext, useCallback, useContext } from "react";
+import { useCallback } from "react";
 import useSWR, { mutate } from "swr";
+import { TransactionContext } from "./TransactionContext";
 
-export const TransactionContext = createContext();
-
-export const ServerBasedTransactionsProvider = ({ url, children }) => {
-  // STale While Revalidate provides a way to refresh remote data in a local cache and
+export const ServerTransactionsProvider = ({ url, children }) => {
+  // Stale-While- Revalidate provides a way to refresh remote data in a local cache and
   // control how it is refreshed. This enables polling refresh as well as the standard triggers
   const { data: transactions } = useSWR(
     url,
@@ -31,4 +30,3 @@ export const ServerBasedTransactionsProvider = ({ url, children }) => {
 
   return <TransactionContext.Provider value={value}>{children}</TransactionContext.Provider>;
 };
-export const useTransactions = () => useContext(TransactionContext);

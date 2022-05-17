@@ -1,1 +1,2 @@
-export * from "./TransactionProvider";
+export * from "./TransactionsProvider";
+export * from "./TransactionContext";
