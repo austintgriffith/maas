@@ -17,7 +17,7 @@ Prerequisites: [Node (v16 LTS)](https://nodejs.org/en/download/) plus [Yarn](htt
 > clone/fork 🪄 MaaS:
 
 ```bash
-git clone https://github.com/stevenpslade/maas.git
+git clone https://github.com/austintgriffith/maas
 ```
 
 > install and start your 👷‍ Hardhat chain:

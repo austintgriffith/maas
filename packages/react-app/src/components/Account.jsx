@@ -6,7 +6,7 @@ import Address from "./Address";
 import Balance from "./Balance";
 import Wallet from "./Wallet";
 
-/** 
+/**
   ~ What it does? ~
 
   Displays an Address, Balance, and Wallet as one Account component,
@@ -98,7 +98,8 @@ export default function Account({
               ensProvider={mainnetProvider}
               blockExplorer={blockExplorer}
               fontSize={"1.125rem"}
-              blockieSize={5}
+              blockieSize={8}
+              fontSize={16}
             />
           )}
         </div>
