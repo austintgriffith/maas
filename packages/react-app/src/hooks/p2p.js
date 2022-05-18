@@ -2,6 +2,9 @@ import { useEffect, useState, useRef } from "react";
 import Peer from "peerjs";
 //inspo from https://github.com/madou/react-peer
 
+/**
+ * Receive changes to state from peers
+ */
 export const useReceivePeerState = ({ peerBrokerIds, client }) => {
   const [state, setState] = useState();
   const [isConnected, setIsConnected] = useState({});
@@ -46,6 +49,9 @@ export const useReceivePeerState = ({ peerBrokerIds, client }) => {
   return [state, isConnected];
 };
 
+/**
+ * Sends our state to our peers
+ */
 export const usePeerState = ({ initialState, client }) => {
   const [connections, setConnections] = useState([]);
   const [state, setState] = useState(initialState);

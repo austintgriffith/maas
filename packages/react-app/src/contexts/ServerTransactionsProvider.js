@@ -6,12 +6,13 @@ import { TransactionContext } from "./TransactionContext";
 /**
  * Uses a remote server to store transactions
  */
-export const ServerTransactionsProvider = ({ url, children }) => {
+export const ServerTransactionsProvider = ({ serverUrl, chainId, contractAddress, children }) => {
   // Stale-While- Revalidate provides a way to refresh remote data in a local cache and
   // control how it is refreshed. This enables polling refresh as well as the standard triggers
+  const getUrl = serverUrl + contractAddress + "_" + chainId;
   const { data: transactions } = useSWR(
-    url,
-    async () => {
+    getUrl,
+    async url => {
       const { data } = await axios.get(url);
       return data;
     },
@@ -20,10 +21,10 @@ export const ServerTransactionsProvider = ({ url, children }) => {
 
   const saveTransaction = useCallback(
     async tx => {
-      await axios.post(url, tx);
-      await mutate(url);
+      await axios.post(serverUrl, tx);
+      await mutate(getUrl);
     },
-    [url],
+    [getUrl, serverUrl],
   );
 
   const value = {

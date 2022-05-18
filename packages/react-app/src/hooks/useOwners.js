@@ -1,18 +1,19 @@
 export const useOwners = ({ ownerEvents }) => {
   const events = ownerEvents?.sort((a, b) => a.blockNumber - b.blockNumber) || [];
   const { owners, previousOwners } = events.reduce(
-    ({ owners, previousOwners }, e) => {
-      if (e.added) {
-        owners[e.owner] = e;
-        delete previousOwners[e.owner];
+    (result, { args }) => {
+      const { owners, previousOwners } = result;
+      if (args.added) {
+        owners.add(args.owner);
+        previousOwners.delete(args.owner);
       } else {
-        previousOwners[e.owner] = e;
-        delete owners[e.owner];
+        previousOwners.add(args.owner);
+        owners.delete(args.owner);
       }
-      return owners;
+      return result;
     },
-    { owners: {}, previousOwners: {} },
+    { owners: new Set(), previousOwners: new Set() },
   );
 
-  return { owners: Object.keys(owners || {}), previousOwners: Object.keys(previousOwners || {}) };
+  return { owners: [...owners], previousOwners: [...previousOwners] };
 };

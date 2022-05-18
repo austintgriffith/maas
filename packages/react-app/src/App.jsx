@@ -588,9 +588,10 @@ function App(props) {
         </Menu.Item>
       </Menu>
       <TransactionsProvider
-        providerType="p2p"
+        providerType="server"
         providerOptions={{
-          url: BACKEND_URL + readContracts[contractName]?.address + "_" + localProvider?._network.chainId,
+          serverUrl: BACKEND_URL,
+          chainId: localProvider?._network.chainId,
           address,
           contractAddress,
           ownerEvents,

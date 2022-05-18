@@ -41,6 +41,8 @@ export default function Transactions({
             const isOwner = await contract.isOwner(signer);
             if (signer && isOwner) {
               validSignatures.push({ signer, signature: tx.signatures[sig] });
+            } else {
+              console.warn(`Invalid TX`, tx);
             }
           }
 
