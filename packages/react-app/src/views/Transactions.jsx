@@ -145,6 +145,9 @@ export default function Transactions({
                         item.data,
                       );
                       const [finalSigList, finalSigners] = await getSortedSigList(item.signatures, newHash);
+                      //TODO: find all tx with similar nonce;
+                      const txWithSimilarNonce = transactions.filter(tx => tx.nonce === item.nonce);
+
                       tx(
                         writeContracts[contractName].executeTransaction(
                           item.to,
@@ -157,10 +160,12 @@ export default function Transactions({
                             console.log("transaction error", txResp);
                             return;
                           }
-                          wakuLightPush({
-                            ...item,
-                            done: 1,
-                            timestamp: new Date(),
+                          txWithSimilarNonce.map(tx => {
+                            return wakuLightPush({
+                              ...tx,
+                              done: 1,
+                              timestamp: new Date(),
+                            });
                           });
                         },
                       );

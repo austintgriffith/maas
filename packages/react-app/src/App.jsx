@@ -465,6 +465,10 @@ function App(props) {
       };
       waku.store.queryHistory([CONTENT_TOPIC], { callback: processWakuStoreMessages }).catch(e => {
         console.log("==> Failed to retrieve messages", e);
+        notification.open({
+          message: "🛑 Failed to retrieve messages",
+          description: <>{e}</>,
+        });
       });
     }
 
