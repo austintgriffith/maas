@@ -21,36 +21,51 @@ describe("MultiSigWallet Test", () => {
   beforeEach(async function () {
     [owner, addr1, addr2] = await ethers.getSigners();
 
-    let MultiSigFactoryContractFactory = await ethers.getContractFactory("MultiSigFactory");
+    let MultiSigFactoryContractFactory = await ethers.getContractFactory(
+      "MultiSigFactory"
+    );
     MultiSigFactory = await MultiSigFactoryContractFactory.deploy();
 
     await MultiSigFactory.create(CHAIN_ID, [owner.address], signatureRequired);
     let [multiSigWalletAddress] = await MultiSigFactory.getMultiSig(0);
 
-    let MultiSigWalletContractFactory = await ethers.getContractFactory("MultiSigWallet");
-    MultiSigWallet = await MultiSigWalletContractFactory.attach(multiSigWalletAddress);
+    let MultiSigWalletContractFactory = await ethers.getContractFactory(
+      "MultiSigWallet"
+    );
+    MultiSigWallet = await MultiSigWalletContractFactory.attach(
+      multiSigWalletAddress
+    );
 
     await owner.sendTransaction({
       to: MultiSigWallet.address,
-      value: ethers.utils.parseEther("1.0")
+      value: ethers.utils.parseEther("1.0"),
     });
 
     provider = owner.provider;
 
     // Create TestERC20Token token, minting 100 for the multiSigWallet
-    let TestERC20TokenContractFactory = await ethers.getContractFactory("TestERC20Token");
-    TestERC20Token = await TestERC20TokenContractFactory.deploy(MultiSigWallet.address, ethers.utils.parseEther(TEST_ERC20_TOKEN_TOTAL_SUPPLY)); 
+    let TestERC20TokenContractFactory = await ethers.getContractFactory(
+      "TestERC20Token"
+    );
+    TestERC20Token = await TestERC20TokenContractFactory.deploy(
+      MultiSigWallet.address,
+      ethers.utils.parseEther(TEST_ERC20_TOKEN_TOTAL_SUPPLY)
+    );
   });
 
   describe("Deployment", () => {
-    it("isOwner should return true for the deployer owner address", async () => {     
+    it("isOwner should return true for the deployer owner address", async () => {
       expect(await MultiSigWallet.isOwner(owner.address)).to.equal(true);
     });
 
     it("Multi Sig Wallet should own all the TestERC20Token token", async () => {
-      let MultiSigWalletTestERC20TokenBalance = await TestERC20Token.balanceOf(MultiSigWallet.address);
+      let MultiSigWalletTestERC20TokenBalance = await TestERC20Token.balanceOf(
+        MultiSigWallet.address
+      );
 
-      expect(MultiSigWalletTestERC20TokenBalance).to.equal(ethers.utils.parseEther(TEST_ERC20_TOKEN_TOTAL_SUPPLY));
+      expect(MultiSigWalletTestERC20TokenBalance).to.equal(
+        ethers.utils.parseEther(TEST_ERC20_TOKEN_TOTAL_SUPPLY)
+      );
     });
   });
 
@@ -62,36 +77,96 @@ describe("MultiSigWallet Test", () => {
       let to = MultiSigWallet.address;
       let value = 0;
 
-      let callData = MultiSigWallet.interface.encodeFunctionData("addSigner",[newSigner, 1]);
-      
-      let hash = await MultiSigWallet.getTransactionHash(nonce, to, value, callData);
-      const signature = await owner.provider.send("personal_sign", [hash, owner.address]);
+      let callData = MultiSigWallet.interface.encodeFunctionData("addSigner", [
+        newSigner,
+        2,
+      ]);
+
+      let hash = await MultiSigWallet.getTransactionHash(
+        nonce,
+        to,
+        value,
+        callData
+      );
+      const signature = await owner.provider.send("personal_sign", [
+        hash,
+        owner.address,
+      ]);
 
       // Double checking if owner address is recovered properly, executeTransaction would fail anyways
-      expect(await MultiSigWallet.recover(hash, signature)).to.equal(owner.address);
+      expect(await MultiSigWallet.recover(hash, signature)).to.equal(
+        owner.address
+      );
 
       await MultiSigWallet.executeTransaction(to, value, callData, [signature]);
 
       expect(await MultiSigWallet.isOwner(newSigner)).to.equal(true);
     });
 
-    // I think this is a bug in MultiSigWallet which should be fixed, same for addSigner/removeSigner where newSignaturesRequired is used
-    it("Update Signatures Required to 2 - locking all the funds in the wallet, becasuse there is only 1 signer", async () => {
+    it("should revert when adding a new signer with singatures required > number of owners", async () => {
+      let newSigner = addr1.address;
+
       let nonce = await MultiSigWallet.nonce();
       let to = MultiSigWallet.address;
       let value = 0;
 
-      let callData = MultiSigWallet.interface.encodeFunctionData("updateSignaturesRequired",[2]);
-      
-      let hash = await MultiSigWallet.getTransactionHash(nonce, to, value, callData);
-      const signature = await owner.provider.send("personal_sign", [hash, owner.address]);
+      let callData = MultiSigWallet.interface.encodeFunctionData("addSigner", [
+        newSigner,
+        3,
+      ]);
+
+      let hash = await MultiSigWallet.getTransactionHash(
+        nonce,
+        to,
+        value,
+        callData
+      );
+      const signature = await owner.provider.send("personal_sign", [
+        hash,
+        owner.address,
+      ]);
 
       // Double checking if owner address is recovered properly, executeTransaction would fail anyways
-      expect(await MultiSigWallet.recover(hash, signature)).to.equal(owner.address);
+      expect(await MultiSigWallet.recover(hash, signature)).to.equal(
+        owner.address
+      );
 
-      await MultiSigWallet.executeTransaction(to, value, callData, [signature]);
+      await expect(
+        MultiSigWallet.executeTransaction(to, value, callData, [signature])
+      ).to.be.revertedWith("executeTransaction: tx failed");
+    });
 
-      expect(await MultiSigWallet.signaturesRequired()).to.equal(2);
+    it("should revert when required signatures is more than owners", async () => {
+      let nonce = await MultiSigWallet.nonce();
+      let to = MultiSigWallet.address;
+      let value = 0;
+
+      let callData = MultiSigWallet.interface.encodeFunctionData(
+        "updateSignaturesRequired",
+        [3]
+      );
+
+      let hash = await MultiSigWallet.getTransactionHash(
+        nonce,
+        to,
+        value,
+        callData
+      );
+      const signature = await owner.provider.send("personal_sign", [
+        hash,
+        owner.address,
+      ]);
+
+      // Double checking if owner address is recovered properly, executeTransaction would fail anyways
+      expect(await MultiSigWallet.recover(hash, signature)).to.equal(
+        owner.address
+      );
+
+      await expect(
+        MultiSigWallet.executeTransaction(to, value, callData, [signature])
+      ).to.be.revertedWith("executeTransaction: tx failed");
+
+      expect(await MultiSigWallet.signaturesRequired()).to.equal(1);
     });
 
     it("Transferring 0.1 eth to addr1", async () => {
@@ -101,12 +176,22 @@ describe("MultiSigWallet Test", () => {
       let to = addr1.address;
       let value = ethers.utils.parseEther("0.1");
 
-      let callData = "0x00"; // This can be anything, we could send a message 
-      
-      let hash = await MultiSigWallet.getTransactionHash(nonce, to, value.toString(), callData);
-      const signature = await owner.provider.send("personal_sign", [hash, owner.address]);
+      let callData = "0x00"; // This can be anything, we could send a message
 
-      await MultiSigWallet.executeTransaction(to, value.toString(), callData, [signature]);
+      let hash = await MultiSigWallet.getTransactionHash(
+        nonce,
+        to,
+        value.toString(),
+        callData
+      );
+      const signature = await owner.provider.send("personal_sign", [
+        hash,
+        owner.address,
+      ]);
+
+      await MultiSigWallet.executeTransaction(to, value.toString(), callData, [
+        signature,
+      ]);
 
       let addr1Balance = await provider.getBalance(addr1.address);
 
@@ -118,21 +203,43 @@ describe("MultiSigWallet Test", () => {
 
       let nonce = await MultiSigWallet.nonce();
       let to = TestERC20Token.address;
-      let value = 0
+      let value = 0;
 
-      let callData = TestERC20Token.interface.encodeFunctionData("approve",[addr1.address, amount]);
-      
-      let hash = await MultiSigWallet.getTransactionHash(nonce, to, value.toString(), callData);
-      const signature = await owner.provider.send("personal_sign", [hash, owner.address]);
+      let callData = TestERC20Token.interface.encodeFunctionData("approve", [
+        addr1.address,
+        amount,
+      ]);
 
-      await MultiSigWallet.executeTransaction(to, value.toString(), callData, [signature]);
+      let hash = await MultiSigWallet.getTransactionHash(
+        nonce,
+        to,
+        value.toString(),
+        callData
+      );
+      const signature = await owner.provider.send("personal_sign", [
+        hash,
+        owner.address,
+      ]);
 
-      let MultiSigWallet_addr1Allowance = await TestERC20Token.allowance(MultiSigWallet.address, addr1.address);
+      await MultiSigWallet.executeTransaction(to, value.toString(), callData, [
+        signature,
+      ]);
+
+      let MultiSigWallet_addr1Allowance = await TestERC20Token.allowance(
+        MultiSigWallet.address,
+        addr1.address
+      );
       expect(MultiSigWallet_addr1Allowance).to.equal(amount);
 
-      await TestERC20Token.connect(addr1).transferFrom(MultiSigWallet.address, addr2.address, amount);
+      await TestERC20Token.connect(addr1).transferFrom(
+        MultiSigWallet.address,
+        addr2.address,
+        amount
+      );
 
-      let addr2TestERC20TokenBalance = await TestERC20Token.balanceOf(addr2.address);
+      let addr2TestERC20TokenBalance = await TestERC20Token.balanceOf(
+        addr2.address
+      );
       expect(addr2TestERC20TokenBalance).to.equal(amount);
     });
   });

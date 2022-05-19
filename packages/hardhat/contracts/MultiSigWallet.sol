@@ -3,13 +3,14 @@ pragma solidity >=0.8.0 <0.9.0;
 
 // never forget the OG simple sig wallet: https://github.com/christianlundkvist/simple-multisig/blob/master/contracts/SimpleMultiSig.sol
 
-pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./MultiSigFactory.sol";
 
 contract MultiSigWallet {
 	using ECDSA for bytes32;
   MultiSigFactory private multiSigFactory;
+
+  error RequiredSignaturesMoreThanAvailableOwners();
 
 	event Deposit(address indexed sender, uint amount, uint balance);
 	event ExecuteTransaction( address indexed owner, address payable to, uint256 value, bytes data, uint256 nonce, bytes32 hash, bytes result);
@@ -37,7 +38,6 @@ contract MultiSigWallet {
     require(_signaturesRequired > 0, "Must be non-zero sigs required");
     _;
   }
-
   constructor(uint256 _chainId, address[] memory _owners, uint _signaturesRequired, address _factory) payable requireNonZeroSignatures(_signaturesRequired) {
     multiSigFactory = MultiSigFactory(_factory);
     signaturesRequired = _signaturesRequired;
@@ -62,8 +62,9 @@ contract MultiSigWallet {
 
     isOwner[newSigner] = true;
     owners.push(newSigner);
+    if (newSignaturesRequired>owners.length) revert RequiredSignaturesMoreThanAvailableOwners();
     signaturesRequired = newSignaturesRequired;
-
+   
     emit Owner(newSigner, isOwner[newSigner]);
     multiSigFactory.emitOwners(address(this), owners, newSignaturesRequired);
   }
@@ -71,7 +72,8 @@ contract MultiSigWallet {
   function removeSigner(address oldSigner, uint256 newSignaturesRequired) public onlySelf requireNonZeroSignatures(newSignaturesRequired) {
     require(isOwner[oldSigner], "removeSigner: not owner");
 
-     _removeOwner(oldSigner);
+    _removeOwner(oldSigner);
+    if (newSignaturesRequired>owners.length) revert RequiredSignaturesMoreThanAvailableOwners();
     signaturesRequired = newSignaturesRequired;
 
     emit Owner(oldSigner, isOwner[oldSigner]);
@@ -97,6 +99,7 @@ contract MultiSigWallet {
   }
 
   function updateSignaturesRequired(uint256 newSignaturesRequired) public onlySelf requireNonZeroSignatures(newSignaturesRequired) {
+    if (newSignaturesRequired>owners.length) revert RequiredSignaturesMoreThanAvailableOwners();
     signaturesRequired = newSignaturesRequired;
   }
 
