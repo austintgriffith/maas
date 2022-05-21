@@ -411,35 +411,33 @@ function App(props) {
     }
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
+    if (!waku) return;
     if (!currentMultiSigAddress) return;
-    // If Waku status is Connected, return
+    // We do not handle disconnection/re-connection in this example
     if (wakuStatus === "Connected") return;
-    // If Waku status is None, it means we need to start Waku;
-    if (!waku || wakuStatus === "None") {
-      setWakuStatus("Starting");
 
-      // Create Waku
+    waku.waitForRemotePeer().then(() => {
+      // We are now connected to a store node
+      setWakuStatus("Connected");
+    });
+  }, [waku, wakuStatus, currentMultiSigAddress]);
 
-      Waku.create({
-        bootstrap: {
-          peers: getPredefinedBootstrapNodes(discovery.predefined.Fleet.Test),
-        },
-        decryptionKeys: [utils.hexToBytes(utils.keccak256Buf(Buffer.from(CONTENT_TOPIC, "utf-8")))],
-      }).then(waku => {
-        // Once done, put it in the state
-        setWaku(waku);
-        // And update the status
-        setWakuStatus("Connecting");
-      });
-    }
+  React.useEffect(() => {
+    if (!currentMultiSigAddress) return;
+    if (wakuStatus !== "None") return;
 
-    // If Waku status is Connecting, it means we need to wait for the Waku peers to be ready;
-    if (wakuStatus === "Connecting") {
-      waku.waitForRemotePeer().then(() => {
-        setWakuStatus("Connected");
-      });
-    }
+    setWakuStatus("Starting");
+
+    Waku.create({
+      bootstrap: {
+        peers: getPredefinedBootstrapNodes(discovery.predefined.Fleet.Prod),
+      },
+      decryptionKeys: [utils.hexToBytes(utils.keccak256Buf(Buffer.from(CONTENT_TOPIC, "utf-8")))],
+    }).then(waku => {
+      setWaku(waku);
+      setWakuStatus("Connecting");
+    });
   }, [waku, wakuStatus, currentMultiSigAddress]);
 
   const addNewTransaction = useCallback(
