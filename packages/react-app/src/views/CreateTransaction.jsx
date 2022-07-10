@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useHistory } from "react-router-dom";
 import { Button, Input, Select, InputNumber, Space, Tooltip } from "antd";
-import { CodeOutlined } from "@ant-design/icons";
+import { CodeOutlined } from '@ant-design/icons';
 import { AddressInput, EtherInput, WalletConnectInput } from "../components";
 import TransactionDetailsModal from "../components/MultiSig/TransactionDetailsModal";
 import { parseExternalContractTransaction } from "../helpers";
@@ -26,8 +26,8 @@ export default function CreateTransaction({
 }) {
   const history = useHistory();
 
-  const [methodName, setMethodName] = useLocalStorage("methodName", "transferFunds");
-  const [newSignaturesRequired, setNewSignaturesRequired] = useState(signaturesRequired);
+  const [methodName, setMethodName] = useLocalStorage("methodName", "transferFunds")
+  const [newSignaturesRequired, setNewSignaturesRequired] = useState(signaturesRequired)
   const [amount, setAmount] = useState("0");
   const [to, setTo] = useLocalStorage("to");
   const [customCallData, setCustomCallData] = useState("");
@@ -36,13 +36,13 @@ export default function CreateTransaction({
   const [loading, setLoading] = useState(false);
   const [isWalletConnectTransaction, setIsWalletConnectTransaction] = useState(false);
 
-  const [hasEdited, setHasEdited] = useState(); //we want the signaturesRequired to update from the contract _until_ they edit it
+  const [hasEdited, setHasEdited] = useState() //we want the signaturesRequired to update from the contract _until_ they edit it
 
-  useEffect(() => {
-    if (!hasEdited) {
-      setNewSignaturesRequired(signaturesRequired);
+  useEffect(()=>{
+    if(!hasEdited){
+      setNewSignaturesRequired(signaturesRequired)
     }
-  }, [signaturesRequired]);
+  },[signaturesRequired])
 
   const showModal = () => {
     setIsModalVisible(true);
@@ -56,7 +56,7 @@ export default function CreateTransaction({
     const getParsedTransaction = async () => {
       const parsedTransaction = await parseExternalContractTransaction(to, customCallData);
       setParsedCustomCallData(parsedTransaction);
-    };
+    }
 
     getParsedTransaction();
   }, [customCallData]);
@@ -75,11 +75,12 @@ export default function CreateTransaction({
 
   const createTransaction = async () => {
     try {
-      //a little security in the frontend just because
-      if (newSignaturesRequired < 1) {
-        alert("signatures required must be >= 1");
-      } else {
-        setLoading(true);
+
+      //a little security in the frontend just because 
+      if(newSignaturesRequired<1){
+        alert("signatures required must be >= 1")
+      }else{
+        setLoading(true)
 
         let callData;
         let executeToAddress;
@@ -87,10 +88,7 @@ export default function CreateTransaction({
           callData = methodName == "transferFunds" ? "0x" : customCallData;
           executeToAddress = to;
         } else {
-          callData = readContracts[contractName]?.interface?.encodeFunctionData(methodName, [
-            to,
-            newSignaturesRequired,
-          ]);
+          callData = readContracts[contractName]?.interface?.encodeFunctionData(methodName, [to, newSignaturesRequired]);
           executeToAddress = contractAddress;
         }
 
@@ -132,18 +130,18 @@ export default function CreateTransaction({
           console.log("ERROR, NOT OWNER.");
         }
       }
-    } catch (error) {
+
+
+    } catch(error) {
       console.log("Error: ", error);
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center">
-      <div
-        // style={{ border: "1px solid #cccccc", padding: 16, width: 400, margin: "auto", marginTop: 64 }}
-        className="flex justify-center border-2 m-5 w-96 rounded-2xl shadow-md"
-      >
+    <div>
+
+      <div style={{ border: "1px solid #cccccc", padding: 16, width: 400, margin: "auto", marginTop: 64 }}>
         <div style={{ margin: 8 }}>
           <div style={{ margin: 8, padding: 8 }}>
             <Select value={methodName} style={{ width: "100%" }} onChange={setMethodName}>
@@ -178,22 +176,22 @@ export default function CreateTransaction({
                 />
               </div>
               <div style={inputStyle}>
-                {(methodName == "addSigner" || methodName == "removeSigner") && (
+                {(methodName == "addSigner" || methodName == "removeSigner") &&
                   <InputNumber
                     style={{ width: "100%" }}
                     placeholder="New # of signatures required"
                     value={newSignaturesRequired}
-                    onChange={value => {
-                      setNewSignaturesRequired(value);
-                      setHasEdited(true);
+                    onChange={(value)=>{
+                      setNewSignaturesRequired(value)
+                      setHasEdited(true)
                     }}
                   />
-                )}
-                {methodName == "customCallData" && (
+                }
+                {methodName == "customCallData" &&
                   <>
                     <Input.Group compact>
                       <Input
-                        style={{ width: "calc(100% - 31px)", marginBottom: 20 }}
+                        style={{ width: 'calc(100% - 31px)', marginBottom: 20 }}
                         placeholder="Custom call data"
                         value={customCallData}
                         onChange={e => {
@@ -213,19 +211,29 @@ export default function CreateTransaction({
                       price={price}
                     />
                   </>
-                )}
-                {(methodName == "transferFunds" || methodName == "customCallData") && (
-                  <EtherInput price={price} mode="USD" value={amount} onChange={setAmount} />
-                )}
+                }
+                {(methodName == "transferFunds" || methodName == "customCallData") &&
+                  <EtherInput
+                    price={price}
+                    mode="USD"
+                    value={amount}
+                    onChange={setAmount}
+                  />
+                }
               </div>
               <Space style={{ marginTop: 32 }}>
-                <Button loading={loading} onClick={createTransaction} type="primary">
+                <Button
+                  loading={loading}
+                  onClick={createTransaction}
+                  type="primary"
+                >
                   Propose
                 </Button>
               </Space>
             </>
           )}
         </div>
+
       </div>
     </div>
   );
