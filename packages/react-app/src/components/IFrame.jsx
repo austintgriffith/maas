@@ -123,7 +123,7 @@ export default function IFrame({ address, loadTransactionData, mainnetProvider, 
   };
   return (
     <div className="flex flex-col items-center">
-      <Select placeholder="Select App" className="w-36" onChange={handleChangeApp}>
+      <Select placeholder="Select app" className="w-36" onChange={handleChangeApp}>
         {iframApps.map((app, index) => (
           <React.Fragment key={index}>
             <Option value={app.url}>{app.name.toUpperCase()}</Option>
