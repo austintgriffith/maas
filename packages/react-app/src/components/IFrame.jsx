@@ -122,48 +122,54 @@ export default function IFrame({ address, loadTransactionData, mainnetProvider, 
     setIsIFrameLoading(true);
   };
   return (
-    <div className="flex flex-col items-center">
-      <Select placeholder="Select app" className="w-36" onChange={handleChangeApp}>
-        {iframApps.map((app, index) => (
-          <React.Fragment key={index}>
-            <Option value={app.url}>{app.name.toUpperCase()}</Option>
-          </React.Fragment>
-        ))}
-      </Select>
+    <div className="flex flex-col items-center w-full ">
+      <div className="w-full m-1">
+        <Input.Group compact>
+          <Select
+            placeholder="Select app"
+            className="w-36 "
+            onChange={handleChangeApp}
+            style={{
+              marginTop: 5,
+              marginRight: 5,
+            }}
+          >
+            {iframApps.map((app, index) => (
+              <React.Fragment key={index}>
+                <Option value={app.url}>{app.name.toUpperCase()}</Option>
+              </React.Fragment>
+            ))}
+          </Select>
+          <Input
+            placeholder="Enter custom dapp URL"
+            style={{
+              width: "40%",
+              marginTop: 5,
+            }}
+            autoFocus={true}
+            value={inputAppUrl}
+            onChange={e => setInputAppUrl(e.target.value)}
+          />
+          <Button
+            type={"primary"}
+            style={{
+              marginTop: 5,
+            }}
+            onClick={() => {
+              setAppUrl(inputAppUrl);
+              setIsIFrameLoading(true);
+            }}
+          >
+            {isIFrameLoading ? <Spin /> : "Load"}
+          </Button>
+        </Input.Group>
+      </div>
 
-      <Input
-        placeholder="custom dapp URL"
-        style={{
-          marginTop: 32,
-          minWidth: "18rem",
-          maxWidth: "20rem",
-        }}
-        autoFocus={true}
-        value={inputAppUrl}
-        onChange={e => setInputAppUrl(e.target.value)}
-      />
-      <Button
-        type={"primary"}
-        style={{
-          marginTop: "1rem",
-          maxWidth: "8rem",
-        }}
-        onClick={() => {
-          setAppUrl(inputAppUrl);
-          setIsIFrameLoading(true);
-        }}
-      >
-        {isIFrameLoading ? <Spin /> : "Load"}
-      </Button>
       {appUrl && (
         <iframe
           title="app"
           src={appUrl}
-          width="1200rem"
-          height="900rem"
-          style={{
-            marginTop: "1rem",
-          }}
+          className="w-full h-screen m-1 z-50"
           ref={iframeRef}
           onLoad={() => setIsIFrameLoading(false)}
         />

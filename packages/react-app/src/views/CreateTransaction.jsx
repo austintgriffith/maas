@@ -161,15 +161,17 @@ export default function CreateTransaction({
   };
 
   return (
-    <div className="flex justify-center flex-col items-center">
+    <div className="flex justify-center flex-col items-center ">
       <div
         // style={{ border: "1px solid #cccccc", padding: 16, width: 400, margin: "auto", marginTop: 64 }}
-        className="flex justify-center border-2 m-5 rounded-2xl shadow-md"
+        className={`flex justify-center border-2 m-5 rounded-2xl shadow-md  ${
+          methodName === "iframeCallData" && "w-1/2"
+        }`}
         style={{
           minWidth: "24rem",
         }}
       >
-        <div className="flex flex-col items-center" style={{ margin: 8 }}>
+        <div className="flex flex-col items-center w-full" style={{ margin: 8 }}>
           <div style={{ margin: 8, padding: 8, width: "10rem", maxWidth: "15rem" }}>
             <Select value={methodName} style={{ width: "100%" }} onChange={setMethodName}>
               <Option key="transferFunds">Send ETH</Option>
