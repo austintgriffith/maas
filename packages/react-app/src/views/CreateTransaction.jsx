@@ -164,11 +164,10 @@ export default function CreateTransaction({
     <div className="flex justify-center flex-col items-center ">
       <div
         // style={{ border: "1px solid #cccccc", padding: 16, width: 400, margin: "auto", marginTop: 64 }}
-        className={`flex justify-center border-2 m-5 rounded-2xl shadow-md  ${
-          methodName === "iframeCallData" && "w-1/2"
-        }`}
+        className={`flex justify-center border-2 m-5 rounded-2xl shadow-md`}
         style={{
           minWidth: "24rem",
+          width: methodName === "iframeCallData" && 700,
         }}
       >
         <div className="flex flex-col items-center w-full" style={{ margin: 8 }}>
