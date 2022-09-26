@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
-import { Input, Button, Spin, Row, Col } from "antd";
+import React, { useState, useEffect } from "react";
+import { Input, Button, Spin, Row, Col, Select } from "antd";
 import { useSafeInject } from "../contexts/SafeInjectContext";
 import TransactionDetailsModal from "./MultiSig/TransactionDetailsModal";
 import { NETWORKS } from "../constants";
 import { parseExternalContractTransaction } from "../helpers";
+
+const { Option } = Select;
 
 export default function IFrame({ address, loadTransactionData, mainnetProvider, price }) {
   const cachedNetwork = window.localStorage.getItem("network");
@@ -56,94 +58,83 @@ export default function IFrame({ address, loadTransactionData, mainnetProvider, 
     setNewTx(false);
   };
 
-  const buttons = [
-
-
-
+  const iframApps = [
     {
-      name:"ens",
-      url:"https://app.ens.domains"
+      name: "ens",
+      url: "https://app.ens.domains",
     },
     {
-      name:"uniswap",
-      url:"https://app.uniswap.org"
+      name: "uniswap",
+      url: "https://app.uniswap.org",
     },
     {
-      name:"0xsplits",
-      url:"https://app.0xsplits.xyz"
+      name: "0xsplits",
+      url: "https://app.0xsplits.xyz",
     },
     {
-      name:"aave",
-      url:"https://app.aave.com"
+      name: "aave",
+      url: "https://app.aave.com",
     },
     {
-      name:"snapshot",
-      url:"https://snapshot.org"
+      name: "snapshot",
+      url: "https://snapshot.org",
     },
 
     {
-      name:"instadapp",
-      url:"https://defi.instadapp.io"
+      name: "instadapp",
+      url: "https://defi.instadapp.io",
     },
 
     {
-      name:"hop",
-      url:"https://app.hop.exchange"
+      name: "hop",
+      url: "https://app.hop.exchange",
     },
 
     {
-      name:"balancer",
-      url:"https://app.balancer.fi"
+      name: "balancer",
+      url: "https://app.balancer.fi",
     },
 
     {
-      name:"pooltogether",
-      url:"https://cloudflare-ipfs.com/ipfs/QmTa21pi77hiT1sLCGy5BeVwcyzExUSp2z7byxZukye8hr"
+      name: "pooltogether",
+      url: "https://cloudflare-ipfs.com/ipfs/QmTa21pi77hiT1sLCGy5BeVwcyzExUSp2z7byxZukye8hr",
     },
 
     {
-      name:"juicebox",
-      url:"https://www.juicebox.money"
+      name: "juicebox",
+      url: "https://www.juicebox.money",
     },
 
     {
-      name:"rocketpool",
-      url:"https://stake.rocketpool.net/gnosis"
+      name: "rocketpool",
+      url: "https://stake.rocketpool.net/gnosis",
     },
 
     {
-      name:"zerion",
-      url:"https://app.zerion.io"
+      name: "zerion",
+      url: "https://app.zerion.io",
     },
+  ];
 
-
-
-
-
-  ]
-
-  let renderButtons = []
-  for(let b in buttons){
-    renderButtons.push(
-      <Col className="gutter-row" span={6}><Button onClick={()=>{
-        setAppUrl(buttons[b].url);
-        setIsIFrameLoading(true);
-      }}>{buttons[b].name}</Button></Col>
-    )
-  }
-
+  const handleChangeApp = url => {
+    console.log(`selected app url ${url}`);
+    setAppUrl(url);
+    setIsIFrameLoading(true);
+  };
   return (
     <div className="flex flex-col items-center">
-
-      <Row gutter={{ xs: 8, sm: 16, md: 24, lg: 32 }}>
-        {renderButtons}
-      </Row>
-
+      <Select placeholder="Select App" className="w-36" onChange={handleChangeApp}>
+        {iframApps.map((app, index) => (
+          <React.Fragment key={index}>
+            <Option value={app.url}>{app.name.toUpperCase()}</Option>
+          </React.Fragment>
+        ))}
+      </Select>
 
       <Input
         placeholder="custom dapp URL"
         style={{
-          marginTop:32,
+          marginTop: 32,
           minWidth: "18rem",
           maxWidth: "20rem",
         }}
