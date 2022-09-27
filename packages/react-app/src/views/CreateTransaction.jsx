@@ -169,7 +169,6 @@ export default function CreateTransaction({
         }`}
         style={{
           minWidth: "24rem",
-          // width: methodName === "iframeCallData" && 700,
         }}
       >
         <div className="flex flex-col items-center w-full" style={{ margin: 8 }}>
