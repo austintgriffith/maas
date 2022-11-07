@@ -365,9 +365,11 @@ export default function Wallet(props) {
                       value = ethers.utils.parseEther("" + parseFloat(amount).toFixed(8));
                     }
 
+                    const gasLimit = ethers.utils.hexlify(35000);
                     tx({
                       to: toAddress,
                       value,
+                      gasLimit,
                     });
                     setOpen(!open);
                     setQr();
