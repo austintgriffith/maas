@@ -51,7 +51,7 @@ function CreateMultiSigModal({
   const showCreateModal = async deployType => {
     if (deployType === "CREATE") {
       setDeployType("CREATE");
-      setOwners([...new Set([address])]);
+      // setOwners([...new Set([address])]);
       setTimeout(() => {
         setIsCreateModalVisible(true);
       }, 100);
@@ -78,7 +78,7 @@ function CreateMultiSigModal({
   };
 
   const handleCancel = () => {
-    setWalletName("");
+    // setWalletName("");
     setIsCreateModalVisible(false);
     getUserWallets();
     setIsWalletExist(false);
@@ -427,6 +427,7 @@ function CreateMultiSigModal({
               mode="USD"
               value={amount}
               onChange={setAmount}
+              hideMaxButton={true}
             />
           </div>
         </div>
